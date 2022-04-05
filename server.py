@@ -1,10 +1,6 @@
+import json
 from flask import Flask, jsonify, abort, make_response, request, url_for,session
 from flask import render_template, redirect
-import json
-import re
-import requests 
-import hashlib
-import os
 from web3 import Web3
 
 rpc = "https://naklecha.blockchain.azure.com:3200/C7sLbEihlinGLsD2k9AXwVWH"
@@ -16,6 +12,9 @@ contract_addr = "0xD6B1DbD429f998Dd09f36Cb246bE31b82b7a206C"
 
 app = Flask(__name__)
 app.secret_key = 'Xsa/#f394hf*k;dj5n'
+
+adminAccount = ''
+adminPrivateKey = ''
 
 accounts = [ 
     '0xB0BE5EFDe83490f0d8fC64120461660098AE7599',
@@ -47,7 +46,11 @@ vote_tx = []
 voted = []
 ended = 0
 
-@app.route("/" , methods=['POST'])
+@app.route("/start", methods=['GET'])
+def start():
+    print(web3.eth.accounts.create())
+
+@app.route("/", methods=['POST'])
 def home():
     if(not ended):
         try:
@@ -66,11 +69,11 @@ def home():
             tx_hash = web3.eth.sendRawTransaction(signed_tx.rawTransaction)
             vote_tx.append(tx_hash)
             voted.append(aid)
-            return "Vote successfully casted",200
+            return "Vote successfully casted", 200
         except:
-            return "Error processing",500
+            return "Error processing", 500
     else:
-        return "Election period ended",400
+        return "Election period ended", 400
 
 @app.route("/results" , methods=['GET'])
 def count():
@@ -97,27 +100,28 @@ def end_election():
     tx_hash = web3.eth.sendRawTransaction(signed_tx.rawTransaction)
     return "Election successfully ended\nTx Hash : %s"%(str(tx_hash)),200
 
-@app.route("/number_of_users" , methods=['GET'])
-def number_of_users(): 
+@app.route("/verify_aadhar", methods=['POST'])
+def verify_aadhar(): 
+    # TODO: create a mock aadhar api
     try:
-        return str(len(accounts)),200
+        return json.dumps({'verified': True}), 200
     except:
-        return "Error processing",500
+        return "Error processing", 500
 
-@app.route("/isended" , methods=['GET'])
+@app.route("/isended", methods=['GET'])
 def isended(): 
-    return str(ended>0),200
+    return str(ended>0), 200
 
-@app.route("/candidates_list" , methods=['GET'])
+@app.route("/candidates_list", methods=['GET'])
 def candidates_list():
     try:
         res = []
         election = web3.eth.contract(address=contract_addr, abi=abi)
         for i in range(election.caller().candidatesCount()):    
             res.append(election.caller().candidates(i+1)[1]) #name
-        return json.dumps(res),200
+        return json.dumps(res), 200
     except:
-        return "Error processing",500
+        return "Error processing", 500
 
 if __name__ == '__main__':
 	app.run(host="0.0.0.0", port=3000, debug = True)

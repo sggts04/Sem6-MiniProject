@@ -1,9 +1,9 @@
 from flask import Flask, render_template, flash, request, session, redirect, url_for
 from wtforms import Form, TextField, TextAreaField, validators, StringField, SubmitField
-import requests;
-import json;
+import requests
+import json
 
-backend_addr = "https://election-backend.azurewebsites.net/"
+backend_addr = "localhost:3000/"
 
 app = Flask(__name__)
 app.secret_key = '1IskOP2%1n^p)oY' 
@@ -33,21 +33,21 @@ def verify():
             if request.method == 'POST':
                 aid = request.form['aid']
                 bio = request.form['biometric']
-                resp = requests.get(backend_addr+'number_of_users')
-                number_of_accounts = int(resp.text)
-                if(bio == 'yes' and aid.isdigit() and int(aid)<=number_of_accounts):
+                resp = requests.post(backend_addr + 'verify_aadhar', json.dumps({'aadhaarID': aid}))
+                resu = json.loads(resp.text)
+                if(bio == 'yes' and resu['verified']):
                     session['verified'] = True
                     session['aid'] = int(aid)
                     return redirect(url_for('vote'))
             return render_template('verification.html')
         else:
-            return render_template('confirmation.html',message="Election ended",code=400),400
+            return render_template('confirmation.html', message="Election ended", code=400), 400
     except:
-        return render_template('confirmation.html',message="Error processing"),500
+        return render_template('confirmation.html', message="Error processing"), 500
 
 @app.route("/vote", methods=['GET', 'POST'])
 def vote():
-        resp = requests.get(backend_addr+'isended')
+        resp = requests.get(backend_addr + 'isended')
         if(not eval(resp.text)):
             if('verified' in session):
                 resp = requests.get(backend_addr+'candidates_list')
