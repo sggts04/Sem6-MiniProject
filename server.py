@@ -3,18 +3,120 @@ from flask import Flask, jsonify, abort, make_response, request, url_for,session
 from flask import render_template, redirect
 from web3 import Web3
 
-rpc = "127.0.0.1:8545/"
+rpc = "http://127.0.0.1:7545/"
 
 web3 = Web3(Web3.HTTPProvider(rpc))
-abi = '[{"constant":true,"inputs":[],"name":"candidatesCount","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function","signature":"0x2d35a8a2"},{"constant":true,"inputs":[{"name":"","type":"uint256"}],"name":"candidates","outputs":[{"name":"id","type":"uint256"},{"name":"name","type":"string"},{"name":"voteCount","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function","signature":"0x3477ee2e"},{"constant":true,"inputs":[{"name":"","type":"address"}],"name":"voters","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"view","type":"function","signature":"0xa3ec138d"},{"inputs":[],"payable":false,"stateMutability":"nonpayable","type":"constructor","signature":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"name":"_candidateId","type":"uint256"}],"name":"votedEvent","type":"event","signature":"0xfff3c900d938d21d0990d786e819f29b8d05c1ef587b462b939609625b684b16"},{"constant":false,"inputs":[],"name":"end","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function","signature":"0xefbe1c1c"},{"constant":false,"inputs":[{"name":"_candidateId","type":"uint256"}],"name":"vote","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function","signature":"0x0121b93f"}]'
-contract_addr = "0xD6B1DbD429f998Dd09f36Cb246bE31b82b7a206C"
+abi = """[
+	{
+		"constant": false,
+		"inputs": [],
+		"name": "end",
+		"outputs": [],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"constant": false,
+		"inputs": [
+			{
+				"name": "_candidateId",
+				"type": "uint256"
+			}
+		],
+		"name": "vote",
+		"outputs": [],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"name": "_candidateId",
+				"type": "uint256"
+			}
+		],
+		"name": "votedEvent",
+		"type": "event"
+	},
+	{
+		"constant": true,
+		"inputs": [
+			{
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "candidates",
+		"outputs": [
+			{
+				"name": "id",
+				"type": "uint256"
+			},
+			{
+				"name": "name",
+				"type": "string"
+			},
+			{
+				"name": "voteCount",
+				"type": "uint256"
+			}
+		],
+		"payable": false,
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"constant": true,
+		"inputs": [],
+		"name": "candidatesCount",
+		"outputs": [
+			{
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"payable": false,
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"constant": true,
+		"inputs": [
+			{
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "voters",
+		"outputs": [
+			{
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"payable": false,
+		"stateMutability": "view",
+		"type": "function"
+	}
+]"""
+contract_addr = "0x7f5D776445cD11741Df399E5930D929EC36D403B"
 
 
 app = Flask(__name__)
 app.secret_key = 'Xsa/#f394hf*k;dj5n'
 
-adminAccount = ''
-adminPrivateKey = ''
+adminAccount = '0xa7EA8cc3dEfdF1ab4f341488156fDd176Bb70D17'
+adminPrivateKey = '7a75502f25450ad73f367d4318716d4b9eb80ab3af02da56e3b256de1dafdd7e'
 
 accounts = [ 
     '0xB0BE5EFDe83490f0d8fC64120461660098AE7599',
@@ -59,18 +161,21 @@ def home():
     if(not ended):
         try:
             data = eval(request.data) # {"aadhaarID":int(),"candidateID":int()}
-            aid = int(data["aadhaarID"])-1
+            aid = data["aadhaarID"]
             if(aid in voted):
-                return "Already voted",400
+                return "Already voted", 400
             cid = int(data["candidateID"])
-            acc = accounts[aid]
-            pvt = privatekeys[aid]
             contract = web3.eth.contract(address=contract_addr, abi=abi)
-            transaction  = contract.functions.vote(cid).buildTransaction()
-            transaction['nonce'] = web3.eth.getTransactionCount(acc)
-
-            signed_tx = web3.eth.account.signTransaction(transaction, pvt)
+            transaction = contract.functions.vote(cid).buildTransaction({
+                "gasPrice": web3.eth.gas_price,
+                "from": adminAccount, 
+                "nonce": web3.eth.getTransactionCount(adminAccount), 
+            })
+            print('tx', transaction)
+            signed_tx = web3.eth.account.signTransaction(transaction, adminPrivateKey)
+            print('signed tx', signed_tx)
             tx_hash = web3.eth.sendRawTransaction(signed_tx.rawTransaction)
+            print('tx hash', tx_hash)
             vote_tx.append(tx_hash)
             voted.append(aid)
             return "Vote successfully casted", 200
@@ -94,13 +199,14 @@ def count():
 def end_election():
     global ended
     ended += 1
-    acc = '0xB0BE5EFDe83490f0d8fC64120461660098AE7599'
-    pvt = '25d9479cd21fb800522f8e0c74513f0730f7afac9f3ac7a23d8ad69b7103be52'
     contract = web3.eth.contract(address=contract_addr, abi=abi)
-    transaction  = contract.functions.end().buildTransaction()
-    transaction['nonce'] = web3.eth.getTransactionCount(acc)
+    transaction  = contract.functions.end().buildTransaction({
+        "gasPrice": web3.eth.gas_price,
+        "from": adminAccount, 
+        "nonce": web3.eth.getTransactionCount(adminAccount), 
+    })
 
-    signed_tx = web3.eth.account.signTransaction(transaction, pvt)
+    signed_tx = web3.eth.account.signTransaction(transaction, adminPrivateKey)
     tx_hash = web3.eth.sendRawTransaction(signed_tx.rawTransaction)
     return "Election successfully ended\nTx Hash : %s"%(str(tx_hash)),200
 

@@ -3,7 +3,7 @@ from wtforms import Form, TextField, TextAreaField, validators, StringField, Sub
 import requests
 import json
 
-backend_addr = "localhost:3000/"
+backend_addr = "http://localhost:3000/"
 
 app = Flask(__name__)
 app.secret_key = '1IskOP2%1n^p)oY' 
@@ -37,12 +37,13 @@ def verify():
                 resu = json.loads(resp.text)
                 if(bio == 'yes' and resu['verified']):
                     session['verified'] = True
-                    session['aid'] = int(aid)
+                    session['aid'] = aid
                     return redirect(url_for('vote'))
             return render_template('verification.html')
         else:
             return render_template('confirmation.html', message="Election ended", code=400), 400
-    except:
+    except Exception as e:
+        print(e)
         return render_template('confirmation.html', message="Error processing"), 500
 
 @app.route("/vote", methods=['GET', 'POST'])
