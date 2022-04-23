@@ -7,7 +7,6 @@ contract Election {
         uint voteCount;
     }
     bool goingon = true;
-    mapping(address => bool) public voters;
     mapping(uint => Candidate) public candidates;
     uint public candidatesCount;
 
@@ -38,13 +37,9 @@ contract Election {
     }
 
     function vote (uint _candidateId) public {
-        require(!voters[msg.sender], "Already voted");
-
         require(_candidateId > 0 && _candidateId <= candidatesCount, "Invalid candidate");
 
         require(goingon, "Election ended");
-
-        voters[msg.sender] = true;
 
         candidates[_candidateId].voteCount ++;
 

@@ -9,11 +9,12 @@ app.get("/", (req, res) => {
   res.send("Wassup");
 });
 
-app.get("/verify", (req, res) => {
+app.post("/verify", (req, res) => {
   console.log(req.body);
   const { aadhar } = req.body;
   for (let citizen of citizenData) {
-    if (citizen.aadhar === aadhar) {
+    if (citizen.aadhar === aadhar && citizen.age >= 18) {
+      console.log(citizen);
       res.json(citizen);
     }
   }
@@ -21,6 +22,6 @@ app.get("/verify", (req, res) => {
   res.status(404).end();
 });
 
-app.listen(3000, () => {
-  console.log("Running on port 3000");
+app.listen(3002, () => {
+  console.log("Running on port 3002");
 });

@@ -2,20 +2,13 @@ import json
 from flask import Flask, jsonify, abort, make_response, request, url_for,session
 from flask import render_template, redirect
 from web3 import Web3
+import requests
 
 rpc = "http://127.0.0.1:7545/"
+aadhar_addr = "http://localhost:3002/"
 
 web3 = Web3(Web3.HTTPProvider(rpc))
 abi = """[
-	{
-		"constant": false,
-		"inputs": [],
-		"name": "end",
-		"outputs": [],
-		"payable": false,
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
 	{
 		"constant": false,
 		"inputs": [
@@ -31,22 +24,18 @@ abi = """[
 		"type": "function"
 	},
 	{
+		"constant": true,
 		"inputs": [],
-		"payable": false,
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
+		"name": "candidatesCount",
+		"outputs": [
 			{
-				"indexed": true,
-				"name": "_candidateId",
+				"name": "",
 				"type": "uint256"
 			}
 		],
-		"name": "votedEvent",
-		"type": "event"
+		"payable": false,
+		"stateMutability": "view",
+		"type": "function"
 	},
 	{
 		"constant": true,
@@ -76,40 +65,34 @@ abi = """[
 		"type": "function"
 	},
 	{
-		"constant": true,
+		"constant": false,
 		"inputs": [],
-		"name": "candidatesCount",
-		"outputs": [
-			{
-				"name": "",
-				"type": "uint256"
-			}
-		],
+		"name": "end",
+		"outputs": [],
 		"payable": false,
-		"stateMutability": "view",
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
-		"constant": true,
+		"inputs": [],
+		"payable": false,
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"anonymous": false,
 		"inputs": [
 			{
-				"name": "",
-				"type": "address"
+				"indexed": true,
+				"name": "_candidateId",
+				"type": "uint256"
 			}
 		],
-		"name": "voters",
-		"outputs": [
-			{
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"payable": false,
-		"stateMutability": "view",
-		"type": "function"
+		"name": "votedEvent",
+		"type": "event"
 	}
 ]"""
-contract_addr = "0x7f5D776445cD11741Df399E5930D929EC36D403B"
+contract_addr = "0x3a55741071516d6B985BEd4e170E3E6B10D8BDAC"
 
 
 app = Flask(__name__)
@@ -117,32 +100,6 @@ app.secret_key = 'Xsa/#f394hf*k;dj5n'
 
 adminAccount = '0xa7EA8cc3dEfdF1ab4f341488156fDd176Bb70D17'
 adminPrivateKey = '7a75502f25450ad73f367d4318716d4b9eb80ab3af02da56e3b256de1dafdd7e'
-
-accounts = [ 
-    '0xB0BE5EFDe83490f0d8fC64120461660098AE7599',
-    '0xe0e577218063fc8648A4b04fDcFe2fD02990f734',
-    '0xA55a74F93a50529f6F85658C22538eD9035551c3',
-    '0x0b918ccbA35F62d80530F0223e0eA0DaB0C879BA',
-    '0xCfc9EA020080496D2162B6EE8BFC84B5fbDF1FB5',
-    '0xd84A6127e81Eb9384eB30b6A2D54E29A91798651',
-    '0x35A3c8A48fb58B1d418D62c752Eeb4DA36128564',
-    '0x50EC809051d823D0F979a1a974Ad63568bf7BEC1',
-    '0x56Df378eF6AEB25Ec4fa22eDdB8f88B8407C2334',
-    '0xa5cc1434694afA6daB030EEa5D6e4235e405643E' 
-]
-
-privatekeys = [
-    '25d9479cd21fb800522f8e0c74513f0730f7afac9f3ac7a23d8ad69b7103be52',
-    '01519292e7b9fb0d98149b7b202cbd2b99d92857804140fe927855cc26026a9d',
-    '34f4f6e8a79cb192b957965b7764eb949f588027aee590557160bd2eca64123c',
-    'cc85e4484592eadf0681fe9f2d6297c1cf4cb81321fe9454b43ad04bedcab87a',
-    '4997b54bc7b835335f4324ef4e9f27fc78e42068799c07dba7f2ee517e995808',
-    '448f522922fcfd184712c8b7e8bb82de255c6ca6aa8dda76d1e7aa4bdb819d49',
-    '571f96e9291b198b7e024ab950d5868dbdc6b6137ee30bddb51ff450fa7591ce',
-    '1e4acf03770503c9e5487fab22bb81484968a50b293d6bf528eb9e0fd5bd542e',
-    '7c7aacbc4b3c839e0e870d6c08f63e3816c0b1384aa1dc6d05e9de95f2589106',
-    '58f129cbace24078382559c366c6427f88179d35f2fac2ccdf62591e7e59cbac'
-]
 
 vote_tx = []
 voted = []
@@ -160,12 +117,15 @@ def start():
 def home():
     if(not ended):
         try:
-            data = eval(request.data) # {"aadhaarID":int(),"candidateID":int()}
+            data = json.loads(request.data) # {"aadhaarID":int(),"candidateID":int()}
+            print(data)
             aid = data["aadhaarID"]
             if(aid in voted):
                 return "Already voted", 400
             cid = int(data["candidateID"])
+            print(cid)
             contract = web3.eth.contract(address=contract_addr, abi=abi)
+            print(contract)
             transaction = contract.functions.vote(cid).buildTransaction({
                 "gasPrice": web3.eth.gas_price,
                 "from": adminAccount, 
@@ -179,7 +139,8 @@ def home():
             vote_tx.append(tx_hash)
             voted.append(aid)
             return "Vote successfully casted", 200
-        except:
+        except Exception as e:
+            print(e)
             return "Error processing", 500
     else:
         return "Election period ended", 400
@@ -187,15 +148,15 @@ def home():
 @app.route("/results" , methods=['GET'])
 def count():
     if(ended):
-            res = []
-            election = web3.eth.contract(address=contract_addr, abi=abi)
-            for i in range(election.caller().candidatesCount()):    
-                res.append(election.caller().candidates(i+1))
-            return json.dumps(res),200
+        res = []
+        election = web3.eth.contract(address=contract_addr, abi=abi)
+        for i in range(election.caller().candidatesCount()):    
+            res.append(election.caller().candidates(i+1))
+        return json.dumps(res),200
     else:
         return "Election still on going",400
 
-@app.route("/end" , methods=['POST'])
+@app.route("/end" , methods=['GET'])
 def end_election():
     global ended
     ended += 1
@@ -214,7 +175,15 @@ def end_election():
 def verify_aadhar(): 
     # TODO: create a mock aadhar api
     try:
-        return json.dumps({'verified': True}), 200
+        data = json.loads(request.data)
+        print(data)
+        resp = requests.post(aadhar_addr + 'verify', {'aadhar': data['aadhaarID']})
+        if resp.status_code == 200:
+            resu = json.loads(resp.text)
+            resu['verified'] = True
+            return json.dumps(resu), 200
+        else:
+            return json.dumps({'verified': False}), 200
     except:
         return "Error processing", 500
 
@@ -234,4 +203,4 @@ def candidates_list():
         return "Error processing", 500
 
 if __name__ == '__main__':
-	app.run(host="0.0.0.0", port=3000, debug = True)
+    app.run(host="0.0.0.0", port=3001, debug = True)
