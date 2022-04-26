@@ -38,6 +38,7 @@ def verify():
                 if(bio == 'yes' and resu['verified']):
                     session['verified'] = True
                     session['aid'] = aid
+                    session['name'] = resu['name']
                     return redirect(url_for('vote'))
             return render_template('verification.html')
         else:
@@ -60,13 +61,14 @@ def vote():
                 aid = session['aid']
                 session.pop('verified')
                 session.pop('aid')
+                session.pop('name')
                 candidate = request.form['candidate']
                 cid = candidates.index(candidate)+1
                 print(cid)
                 resp = requests.post(backend_addr, json.dumps({'aadhaarID':aid, 'candidateID':cid}))
                 print(resp)
                 return render_template('confirmation.html', message = resp.text, code = resp.status_code), resp.status_code
-            return render_template('vote.html', candidates1 = candidates1, candidates2 = candidates2), 200
+            return render_template('vote.html', candidates1 = candidates1, candidates2 = candidates2, name = session['name']), 200
         else:
             return redirect(url_for('verify'))
     else:

@@ -92,7 +92,7 @@ abi = """[
 		"type": "event"
 	}
 ]"""
-contract_addr = "0x3a55741071516d6B985BEd4e170E3E6B10D8BDAC"
+contract_addr = "0x89C145Bb2F26a70849B305Fd36e673c50D184F6d"
 
 
 app = Flask(__name__)
